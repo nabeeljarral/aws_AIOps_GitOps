@@ -78,25 +78,34 @@ jobs:
           ACCOUNT="${{ secrets.AWS_ACCOUNT_ID }}"
           REGION="${{ secrets.AWS_REGION }}"
 
-          for SERVICE in auth gateway orders order-service product-service user-service; do
-            MANIFEST="gitops/k8s/backend/${SERVICE}.yml"
+          SERVICES=(
+            auth
+            gateway
+            orders
+            order-service
+            product-service
+            user-service
+            frontend
+          )
+
+          for SERVICE in "${SERVICES[@]}"; do
+
+            if [ "$SERVICE" = "frontend" ]; then
+              MANIFEST="gitops/k8s/frontend/deployment.yml"
+            else
+              MANIFEST="gitops/k8s/backend/${SERVICE}.yml"
+            fi
 
             IMAGE="${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/${SERVICE}:${NEW_TAG}"
 
-            echo "Updating ${MANIFEST} -> ${IMAGE}"
+            echo "Updating ${MANIFEST}"
+            echo "New image: ${IMAGE}"
 
             sed -i -E \
               "s|(^[[:space:]]*image:[[:space:]]*).*|\1${IMAGE}|" \
               "$MANIFEST"
+
           done
-
-          IMAGE="${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/frontend:${NEW_TAG}"
-
-          echo "Updating frontend -> ${IMAGE}"
-
-          sed -i -E \
-            "s|(^[[:space:]]*image:[[:space:]]*).*|\1${IMAGE}|" \
-            gitops/k8s/frontend/deployment.yml
 
       - name: Verify image tags
         run: |
