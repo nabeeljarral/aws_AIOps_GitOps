@@ -74,16 +74,33 @@ jobs:
 
       - name: Update image tags in k8s manifests
         run: |
-          NEW_TAG=${{ github.sha }}
-          ACCOUNT=${{ secrets.AWS_ACCOUNT_ID }}
-          REGION=${{ secrets.AWS_REGION }}
+          NEW_TAG="${{ github.sha }}"
+          ACCOUNT="${{ secrets.AWS_ACCOUNT_ID }}"
+          REGION="${{ secrets.AWS_REGION }}"
 
           for SERVICE in auth gateway orders order-service product-service user-service; do
             MANIFEST="gitops/k8s/backend/${SERVICE}.yml"
-            sed -i "s|${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/${SERVICE}:.*|${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/${SERVICE}:${NEW_TAG}|g" $MANIFEST
+
+            IMAGE="${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/${SERVICE}:${NEW_TAG}"
+
+            echo "Updating ${MANIFEST} -> ${IMAGE}"
+
+            sed -i -E \
+              "s|(^[[:space:]]*image:[[:space:]]*).*|\1${IMAGE}|" \
+              "$MANIFEST"
           done
 
-          sed -i "s|${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/frontend:.*|${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/frontend:${NEW_TAG}|g" gitops/k8s/frontend/deployment.yml
+          IMAGE="${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/frontend:${NEW_TAG}"
+
+          echo "Updating frontend -> ${IMAGE}"
+
+          sed -i -E \
+            "s|(^[[:space:]]*image:[[:space:]]*).*|\1${IMAGE}|" \
+            gitops/k8s/frontend/deployment.yml
+
+      - name: Verify image tags
+        run: |
+          grep -R "image:" gitops/k8s/
 
       - name: Commit and push updated manifests
         run: |
@@ -92,4 +109,3 @@ jobs:
           git add gitops/k8s/
           git diff --staged --quiet || git commit -m "ci: update image tags to ${{ github.sha }}"
           git push
-
